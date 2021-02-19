@@ -29,12 +29,30 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
-    @Mutation(() => User)
+    @Mutation(() => UserResponse)
     async register(@Arg('options') options: UsernamePasswordInput
-    ) {
+    ): Promise<UserResponse> {
+        // Validate username/password length
+        let errors = [];
+        if (options.username.length <= 2){
+            errors.push({field: "username", message: "Username must be at least 3 characters."});
+        }
+        if (options.password.length <= 2){
+            errors.push({field: "password", message: "Password must be at least 3 characters."});
+        }
+        if (errors.length > 0){
+            return { errors };
+        }
         const hashedPassword = await argon2.hash(options.password);
-        const user = User.create({username: options.username, password: hashedPassword}).save();
-        return user;
+        try {
+            const user = await User.create({username: options.username, password: hashedPassword}).save();
+            return { user };
+        } catch(err) {
+            if (err.code === "23505"){
+                return { errors: [{field: "username", message: "Username already exists."}]}
+            }
+            return { errors: [{field: "username", message: "Unexpected error creating user"}]}
+        }
     }
 
     @Mutation(() => UserResponse)

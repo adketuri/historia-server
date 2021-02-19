@@ -70,9 +70,27 @@ UserResponse = __decorate([
 let UserResolver = class UserResolver {
     register(options) {
         return __awaiter(this, void 0, void 0, function* () {
+            let errors = [];
+            if (options.username.length <= 2) {
+                errors.push({ field: "username", message: "Username must be at least 3 characters." });
+            }
+            if (options.password.length <= 2) {
+                errors.push({ field: "password", message: "Password must be at least 3 characters." });
+            }
+            if (errors.length > 0) {
+                return { errors };
+            }
             const hashedPassword = yield argon2_1.default.hash(options.password);
-            const user = User_1.User.create({ username: options.username, password: hashedPassword }).save();
-            return user;
+            try {
+                const user = yield User_1.User.create({ username: options.username, password: hashedPassword }).save();
+                return { user };
+            }
+            catch (err) {
+                if (err.code === "23505") {
+                    return { errors: [{ field: "username", message: "Username already exists." }] };
+                }
+                return { errors: [{ field: "username", message: "Unexpected error creating user" }] };
+            }
         });
     }
     login(options) {
@@ -100,7 +118,7 @@ let UserResolver = class UserResolver {
     }
 };
 __decorate([
-    type_graphql_1.Mutation(() => User_1.User),
+    type_graphql_1.Mutation(() => UserResponse),
     __param(0, type_graphql_1.Arg('options')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [UsernamePasswordInput]),
