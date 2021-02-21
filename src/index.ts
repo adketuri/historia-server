@@ -10,6 +10,10 @@ import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 
+import redis from 'redis';
+import session from 'express-session';
+import connectRedis from 'connect-redis'
+
 const main = async() => {
     await createConnection({
         type: 'postgres',
@@ -29,11 +33,34 @@ const main = async() => {
 
     const app = express();
 
+    const RedisStore = connectRedis(session)
+    const redisClient = redis.createClient()
+    
+    app.use(
+      session({
+        name: 'qid',
+        store: new RedisStore({ 
+            client: redisClient,
+            disableTouch: true,
+        }),
+        cookie: {
+            maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 yrs
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: __prod__
+        },
+        saveUninitialized: false,
+        secret: 'thisshouldbeanenvvariable',
+        resave: false,
+      })
+    )
+
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
             resolvers: [HelloResolver, PostResolver, UserResolver],
             validate: false
         }),
+        context: ({req, res}) => ({req, res})
     });
 
     apolloServer.applyMiddleware({app});
