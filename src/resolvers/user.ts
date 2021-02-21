@@ -41,7 +41,8 @@ export class UserResolver {
     }
 
     @Mutation(() => UserResponse)
-    async register(@Arg('options') options: UsernamePasswordInput
+    async register(@Arg('options') options: UsernamePasswordInput,
+    @Ctx() { req }: MyContext
     ): Promise<UserResponse> {
         // Validate username/password length
         let errors = [];
@@ -57,6 +58,7 @@ export class UserResolver {
         const hashedPassword = await argon2.hash(options.password);
         try {
             const user = await User.create({username: options.username, password: hashedPassword}).save();
+            req.session.userId = user.id;
             return { user };
         } catch(err) {
             if (err.code === "23505"){
