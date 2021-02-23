@@ -1,0 +1,15 @@
+{
+  "name": "dbconn",
+  "type": "postgres",
+  "database": "historia",
+  "username": "andrew",
+  "password": "andrew",
+  "logging": true,
+  "synchronize": true,
+  "entities": [
+      "dist/entities/*.js"
+  ],
+  "migrations": [
+    "dist/migrations/*.js"
+  ]
+}
