@@ -4,9 +4,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Game } from "./Game";
 
 @ObjectType()
 @Entity()
@@ -14,14 +16,6 @@ export class User extends BaseEntity {
   @Field(() => Int)
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Field(() => String)
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @Field(() => String)
-  @UpdateDateColumn()
-  updatedAt: Date;
 
   @Field()
   @Column({ type: "text", unique: true })
@@ -33,4 +27,19 @@ export class User extends BaseEntity {
   @Field()
   @Column({ type: "text", unique: true, nullable: true })
   email: string;
+
+  @Field()
+  @Column({ type: "boolean", default: "false" })
+  isSubmitter: boolean;
+
+  @OneToMany(() => Game, (game) => game.submitter)
+  submissions: Game[];
+
+  @Field(() => String)
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Field(() => String)
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

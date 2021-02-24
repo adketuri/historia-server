@@ -8,19 +8,20 @@ import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
 import { COOKIE_NAME, __prod__ } from "./constants";
+import { GameResolver } from "./resolvers/game";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 
 const main = async () => {
   await createConnection("default");
-  // const post = Post.create({title: "my post"}).save()
-  // console.log("--- POST --- AK")
-  // //console.log(post);
-  // console.log("---find---");
-  // // Post.find().then(value => console.log(value));
-  // const allPosts = await Post.find()
-  // console.log(allPosts);
+
+  // await User.update(
+  //   { username: "andrew" },
+  //   {
+  //     isSubmitter: true,
+  //   }
+  // );
 
   const app = express();
 
@@ -54,7 +55,7 @@ const main = async () => {
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [HelloResolver, PostResolver, UserResolver],
+      resolvers: [HelloResolver, PostResolver, GameResolver, UserResolver],
       validate: false,
     }),
     context: ({ req, res }) => ({ req, res, redis }),

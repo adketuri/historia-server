@@ -64,7 +64,8 @@ export class UserResolver {
       };
     }
 
-    const user = await User.findOne({ id: parseInt(userId) });
+    const userIdNum = parseInt(userId);
+    const user = await User.findOne(userIdNum);
     if (!user) {
       return {
         errors: [
@@ -76,14 +77,15 @@ export class UserResolver {
       };
     }
 
-    const hashedPassword = await argon2.hash(newPassword);
-    user.password = hashedPassword;
-    user.updatedAt = new Date();
-    // User.update({ id: user.id }, user);
-    await user.save();
+    await User.update(
+      { id: userIdNum },
+      {
+        password: await argon2.hash(newPassword),
+      }
+    );
 
     req.session.userId = user.id;
-    redis.del(key);
+    await redis.del(key);
 
     return { user };
   }
@@ -93,7 +95,7 @@ export class UserResolver {
     @Arg("email") email: string,
     @Ctx() { redis }: MyContext
   ) {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) return true; // email not in db
 
     // create token, store in redis
@@ -112,10 +114,9 @@ export class UserResolver {
   }
 
   @Query(() => User, { nullable: true })
-  async me(@Ctx() { req }: MyContext) {
+  me(@Ctx() { req }: MyContext) {
     if (!req.session.userId) return null;
-    const user = await User.findOne({ id: req.session.userId });
-    return user;
+    return User.findOne(req.session.userId);
   }
 
   @Mutation(() => UserResponse)
