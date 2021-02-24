@@ -1,5 +1,5 @@
 {
-  "name": "dbconn",
+  "name": "default",
   "type": "postgres",
   "database": "historia",
   "username": "andrew",
