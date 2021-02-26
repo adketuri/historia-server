@@ -18,34 +18,34 @@ export class Game extends BaseEntity {
   id: number;
 
   @Field()
-  @Column()
+  @Column({ nullable: true })
   title: string;
 
-  @Field()
-  @Column({ nullable: true })
+  @Field({ nullable: true })
+  @Column({ type: "text", nullable: true })
   author: string;
 
-  @Field()
+  @Field({ nullable: true })
   @Column({ nullable: true })
   year: number;
 
-  @Field()
+  @Field({ nullable: true })
   @Column({ nullable: true })
   shortDescription: string;
 
-  @Field()
+  @Field({ nullable: true })
   @Column({ nullable: true })
   longDescription: string;
 
-  @Field()
+  @Field({ nullable: true })
   @Column({ nullable: true })
   thumbnail: string;
 
-  @Field()
+  @Field({ nullable: true })
   @Column({ nullable: true })
   banner: string;
 
-  @Field()
+  @Field(() => Int)
   @Column({ type: "int", default: 0 })
   points!: number;
 

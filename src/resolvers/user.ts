@@ -17,7 +17,7 @@ import { sendEmail } from "../utils/sendEmail";
 import { v4 } from "uuid";
 
 @ObjectType()
-class FieldError {
+export class FieldError {
   @Field()
   field: string;
   @Field()

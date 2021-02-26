@@ -4,7 +4,9 @@ import {
   Ctx,
   Field,
   InputType,
+  Int,
   Mutation,
+  ObjectType,
   Query,
   Resolver,
   UseMiddleware,
@@ -12,6 +14,8 @@ import {
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
 import { isAuth } from "../middleware/isAuth";
+import { FieldError } from "./user";
+import { getConnection } from "typeorm";
 
 @InputType()
 class GameInput {
@@ -31,11 +35,32 @@ class GameInput {
   banner: string;
 }
 
+@ObjectType()
+class GameResponse {
+  @Field(() => [FieldError], { nullable: true })
+  errors?: FieldError[];
+
+  @Field(() => Game, { nullable: true })
+  game?: Game;
+}
+
 @Resolver()
 export class GameResolver {
   @Query(() => [Game])
-  games(): Promise<Game[]> {
-    return Game.find();
+  async games(
+    @Arg("limit", () => Int) limit: number,
+    @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+  ): Promise<Game[]> {
+    const realLimit = Math.min(10, limit);
+    const qb = getConnection()
+      .getRepository(Game)
+      .createQueryBuilder("g")
+      .orderBy(`"createdAt"`, "DESC")
+      .take(realLimit);
+    if (cursor) {
+      qb.where(`"createdAt" < :cursor`, { cursor: new Date(parseInt(cursor)) });
+    }
+    return qb.getMany();
   }
 
   @Query(() => Game, { nullable: true })
@@ -43,19 +68,32 @@ export class GameResolver {
     return Game.findOne(id);
   }
 
-  @Mutation(() => Game)
+  @Mutation(() => GameResponse)
   @UseMiddleware(isAuth)
   async createGame(
     @Arg("input") input: GameInput,
     @Ctx() { req }: MyContext
-  ): Promise<Game> {
+  ): Promise<GameResponse> {
     const user = await User.findOne(req.session.userId);
     if (!user?.isSubmitter) throw new Error("User cannot submit games");
 
-    return Game.create({
-      ...input,
-      submitterId: user.id,
-    }).save();
+    try {
+      const game = await Game.create({
+        ...input,
+        submitterId: user.id,
+      }).save();
+      return { game };
+    } catch (err) {
+      console.log(err);
+      return {
+        errors: [
+          {
+            field: "title",
+            message: "Unknown error?",
+          },
+        ],
+      };
+    }
   }
 
   @Mutation(() => Game, { nullable: true })
