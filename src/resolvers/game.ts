@@ -1,4 +1,4 @@
-import { Game } from "../entities/Game";
+import { MyContext } from "src/types";
 import {
   Arg,
   Ctx,
@@ -11,11 +11,12 @@ import {
   Resolver,
   UseMiddleware,
 } from "type-graphql";
-import { MyContext } from "src/types";
+import { getConnection, getManager } from "typeorm";
+import { Game } from "../entities/Game";
+import { Favorite } from "../entities/Favorite";
 import { User } from "../entities/User";
 import { isAuth } from "../middleware/isAuth";
 import { FieldError } from "./user";
-import { getConnection } from "typeorm";
 
 @InputType()
 class GameInput {
@@ -44,23 +45,92 @@ class GameResponse {
   game?: Game;
 }
 
+@ObjectType()
+class PaginatedGames {
+  @Field(() => [Game])
+  games: Game[];
+  @Field()
+  hasMore: boolean;
+}
+
 @Resolver()
 export class GameResolver {
-  @Query(() => [Game])
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async favorite(
+    @Arg("gameId", () => Int) gameId: number,
+    @Ctx() { req }: MyContext
+  ) {
+    const { userId } = req.session;
+
+    // Get the game, it must exist to favorite
+    const game = await Game.findOne(gameId);
+    if (!game) return false;
+
+    // If we already have a favorite, we want to remove. otherwise, add.
+    const add = !(await Favorite.findOne({ where: { userId, gameId } }));
+
+    // Transaction to add/remove and update our game's favorite count
+    await getManager().transaction(async (tm) => {
+      if (add) {
+        await tm.insert(Favorite, { userId, gameId });
+      } else {
+        await tm.delete(Favorite, { userId, gameId });
+      }
+      await tm.update(
+        Game,
+        { id: gameId },
+        { favoriteCount: game.favoriteCount + (add ? 1 : -1) }
+      );
+    });
+    return true;
+  }
+
+  @Query(() => PaginatedGames)
   async games(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null
-  ): Promise<Game[]> {
-    const realLimit = Math.min(10, limit);
-    const qb = getConnection()
-      .getRepository(Game)
-      .createQueryBuilder("g")
-      .orderBy(`"createdAt"`, "DESC")
-      .take(realLimit);
-    if (cursor) {
-      qb.where(`"createdAt" < :cursor`, { cursor: new Date(parseInt(cursor)) });
-    }
-    return qb.getMany();
+  ): Promise<PaginatedGames> {
+    const realLimit = Math.min(50, limit);
+
+    const replacements: any[] = [realLimit + 1];
+    if (cursor) replacements.push(new Date(parseInt(cursor)));
+
+    const games = await getConnection().query(
+      `
+    select p.*,
+    json_build_object(
+      'id', u.id,
+      'username', u.username,
+      'email', u.email,
+      'createdAt', u."createdAt",
+      'updatedAtAt', u."updatedAt"
+      ) submitter
+    from game p
+    inner join public.user u on u.id = p."submitterId"
+    ${cursor ? `where p."createdAt" < $2` : ""}
+    order by p."createdAt" DESC
+    limit $1
+    `,
+      replacements
+    );
+
+    // const qb = getConnection()
+    //   .getRepository(Game)
+    //   .createQueryBuilder("g")
+    //   .innerJoinAndSelect("'g.submitter", "u", 'u.id = g."submitterId"')
+    //   .orderBy(`g."created_at"`, "DESC")
+    //   .take(realLimit + 1);
+    // if (cursor) {
+    //   qb.where('g."createdAt" < :cursor', {
+    //     cursor: new Date(parseInt(cursor)),
+    //   });
+    // }
+    // const games = await qb.getMany();
+    return {
+      games: games.slice(0, realLimit),
+      hasMore: games.length === realLimit + 1,
+    };
   }
 
   @Query(() => Game, { nullable: true })

@@ -16,6 +16,9 @@ import { UserResolver } from "./resolvers/user";
 const main = async () => {
   await createConnection("default");
 
+  // await Game.delete({});
+  // await getConnection().runMigrations();
+
   // await User.update(
   //   { username: "andrew" },
   //   {

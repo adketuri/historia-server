@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Favorite } from "./Favorite";
 import { Game } from "./Game";
 
 @ObjectType()
@@ -24,7 +25,7 @@ export class User extends BaseEntity {
   @Column({ type: "text" })
   password: string;
 
-  @Field()
+  @Field({ nullable: true })
   @Column({ type: "text", unique: true, nullable: true })
   email: string;
 
@@ -34,6 +35,9 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Game, (game) => game.submitter)
   submissions: Game[];
+
+  @OneToMany(() => Favorite, (favorite) => favorite.user)
+  favorites: Favorite[];
 
   @Field(() => String)
   @CreateDateColumn()
