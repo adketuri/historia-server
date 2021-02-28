@@ -51,14 +51,18 @@ export class Game extends BaseEntity {
   @Column()
   submitterId: number;
 
-  @Field()
+  @Field(() => User)
   @ManyToOne(() => User, (user) => user.submissions)
   submitter: User;
+
+  @Field(() => Boolean)
+  favorited: boolean;
 
   @Field(() => Int)
   @Column({ default: 0 })
   favoriteCount: number;
 
+  @Field(() => [Favorite])
   @OneToMany(() => Favorite, (favorite) => favorite.game)
   favorites: Favorite[];
 

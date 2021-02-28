@@ -16,7 +16,7 @@ import { Game } from "./Game";
 export class User extends BaseEntity {
   @Field(() => Int)
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Field()
   @Column({ type: "text", unique: true })
@@ -33,9 +33,11 @@ export class User extends BaseEntity {
   @Column({ type: "boolean", default: "false" })
   isSubmitter: boolean;
 
+  @Field(() => [Game])
   @OneToMany(() => Game, (game) => game.submitter)
   submissions: Game[];
 
+  @Field(() => [Favorite])
   @OneToMany(() => Favorite, (favorite) => favorite.user)
   favorites: Favorite[];
 

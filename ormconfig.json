@@ -7,7 +7,7 @@
   "logging": true,
   "synchronize": true,
   "entities": [
-      "dist/entities/*.js"
+    "dist/entities/*.js"
   ],
   "migrations": [
     "dist/migrations/*.js"

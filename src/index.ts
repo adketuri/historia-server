@@ -8,6 +8,7 @@ import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
 import { COOKIE_NAME, __prod__ } from "./constants";
+import { User } from "./entities/User";
 import { GameResolver } from "./resolvers/game";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
@@ -19,12 +20,12 @@ const main = async () => {
   // await Game.delete({});
   // await getConnection().runMigrations();
 
-  // await User.update(
-  //   { username: "andrew" },
-  //   {
-  //     isSubmitter: true,
-  //   }
-  // );
+  await User.update(
+    { username: "andrew" },
+    {
+      isSubmitter: true,
+    }
+  );
 
   const app = express();
 

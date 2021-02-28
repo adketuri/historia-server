@@ -59,6 +59,8 @@ export class GameResolver {
   @UseMiddleware(isAuth)
   async favorite(
     @Arg("gameId", () => Int) gameId: number,
+    @Arg("add", () => Boolean) add: boolean,
+
     @Ctx() { req }: MyContext
   ) {
     const { userId } = req.session;
@@ -68,7 +70,7 @@ export class GameResolver {
     if (!game) return false;
 
     // If we already have a favorite, we want to remove. otherwise, add.
-    const add = !(await Favorite.findOne({ where: { userId, gameId } }));
+    // const add = !(await Favorite.findOne({ where: { userId, gameId } }));
 
     // Transaction to add/remove and update our game's favorite count
     await getManager().transaction(async (tm) => {
