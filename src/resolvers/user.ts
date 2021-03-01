@@ -17,6 +17,7 @@ import { UsernamePasswordInput } from "../UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
 import { v4 } from "uuid";
+import { Game } from "../entities/Game";
 
 @ObjectType()
 export class FieldError {
@@ -42,6 +43,11 @@ export class UserResolver {
     // Conditionally strip away email field if it's not the current user
     if (req.session.userId === user.id) return user.email;
     return null;
+  }
+
+  @FieldResolver(() => [Game])
+  submissions(@Root() user: User, @Ctx() {}: MyContext) {
+    return Game.find({ where: { submitterId: user.id } });
   }
 
   @Mutation(() => UserResponse)

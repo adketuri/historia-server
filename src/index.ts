@@ -13,6 +13,7 @@ import { GameResolver } from "./resolvers/game";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
+import { createUserLoader } from "./utils/createUserLoader";
 
 const main = async () => {
   await createConnection("default");
@@ -62,7 +63,12 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, GameResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }) => ({ req, res, redis }),
+    context: ({ req, res }) => ({
+      req,
+      res,
+      redis,
+      userLoader: createUserLoader(),
+    }),
   });
 
   apolloServer.applyMiddleware({ app, cors: false });

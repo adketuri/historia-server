@@ -3,12 +3,14 @@ import {
   Arg,
   Ctx,
   Field,
+  FieldResolver,
   InputType,
   Int,
   Mutation,
   ObjectType,
   Query,
   Resolver,
+  Root,
   UseMiddleware,
 } from "type-graphql";
 import { getConnection, getManager } from "typeorm";
@@ -53,8 +55,13 @@ class PaginatedGames {
   hasMore: boolean;
 }
 
-@Resolver()
+@Resolver(Game)
 export class GameResolver {
+  @FieldResolver(() => User)
+  submitter(@Root() game: Game, @Ctx() { userLoader }: MyContext) {
+    return userLoader.load(game.submitterId);
+  }
+
   @Mutation(() => Boolean)
   @UseMiddleware(isAuth)
   async favorite(
@@ -100,14 +107,7 @@ export class GameResolver {
 
     const games = await getConnection().query(
       `
-    select p.*,
-    json_build_object(
-      'id', u.id,
-      'username', u.username,
-      'email', u.email,
-      'createdAt', u."createdAt",
-      'updatedAtAt', u."updatedAt"
-      ) submitter
+    select p.*
     from game p
     inner join public.user u on u.id = p."submitterId"
     ${cursor ? `where p."createdAt" < $2` : ""}
@@ -152,6 +152,7 @@ export class GameResolver {
     try {
       const game = await Game.create({
         ...input,
+        submitter: user,
         submitterId: user.id,
       }).save();
       return { game };
