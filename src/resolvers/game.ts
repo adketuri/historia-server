@@ -14,10 +14,11 @@ import {
   UseMiddleware,
 } from "type-graphql";
 import { getConnection, getManager } from "typeorm";
-import { Game } from "../entities/Game";
 import { Favorite } from "../entities/Favorite";
+import { Game } from "../entities/Game";
 import { User } from "../entities/User";
 import { isAuth } from "../middleware/isAuth";
+import { slugify } from "../utils/slugify";
 import { FieldError } from "./user";
 
 @InputType()
@@ -60,6 +61,15 @@ export class GameResolver {
   @FieldResolver(() => User)
   submitter(@Root() game: Game, @Ctx() { userLoader }: MyContext) {
     return userLoader.load(game.submitterId);
+  }
+
+  @FieldResolver(() => String)
+  slug(@Root() game: Game, @Ctx() {}: MyContext) {
+    const title = game.title;
+    if (title.trim().length === 0) return game.id;
+    const slugified = slugify(title);
+    if (slugified.length === 0) return game.id;
+    return slugified;
   }
 
   @FieldResolver(() => Boolean)
