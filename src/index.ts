@@ -14,6 +14,8 @@ import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { createUserLoader } from "./utils/createUserLoader";
+import { createFavoriteLoader } from "./utils/createFavoriteLoader";
+import { createGameLoader } from "./utils/createGameLoader";
 
 const main = async () => {
   await createConnection("default");
@@ -68,6 +70,8 @@ const main = async () => {
       res,
       redis,
       userLoader: createUserLoader(),
+      favoriteLoader: createFavoriteLoader(),
+      gameLoader: createGameLoader(),
     }),
   });
 

@@ -62,6 +62,22 @@ export class GameResolver {
     return userLoader.load(game.submitterId);
   }
 
+  @FieldResolver(() => Boolean)
+  async favorited(
+    @Root() game: Game,
+    @Ctx() { favoriteLoader, req }: MyContext
+  ) {
+    if (!req.session.userId) {
+      return null;
+    }
+
+    const favorited = await favoriteLoader.load({
+      gameId: game.id,
+      userId: req.session.userId,
+    });
+    return !!favorited;
+  }
+
   @Mutation(() => Boolean)
   @UseMiddleware(isAuth)
   async favorite(

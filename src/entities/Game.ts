@@ -5,11 +5,9 @@ import {
   CreateDateColumn,
   Entity,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { Favorite } from "./Favorite";
 import { User } from "./User";
 
 @ObjectType()
@@ -62,9 +60,9 @@ export class Game extends BaseEntity {
   @Column({ default: 0 })
   favoriteCount: number;
 
-  @Field(() => [Favorite])
-  @OneToMany(() => Favorite, (favorite) => favorite.game)
-  favorites: Favorite[];
+  // @Field(() => [Favorite])
+  // @OneToMany(() => Favorite, (favorite) => favorite.game)
+  // favorites: Favorite[];
 
   @Field(() => String)
   @CreateDateColumn()

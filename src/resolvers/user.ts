@@ -18,6 +18,7 @@ import { validateRegister } from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
 import { v4 } from "uuid";
 import { Game } from "../entities/Game";
+import { Favorite } from "../entities/Favorite";
 
 @ObjectType()
 export class FieldError {
@@ -48,6 +49,19 @@ export class UserResolver {
   @FieldResolver(() => [Game])
   submissions(@Root() user: User, @Ctx() {}: MyContext) {
     return Game.find({ where: { submitterId: user.id } });
+  }
+
+  @FieldResolver(() => [Game])
+  async favorites(@Root() user: User, @Ctx() { gameLoader }: MyContext) {
+    // return userLoader.load(game.submitterId);
+    const favorites = await Favorite.find({ where: { userId: user.id } });
+    let gameIds: number[] = [];
+    favorites.forEach((favorite) => {
+      gameIds.push(favorite.gameId);
+    });
+    console.log(gameIds);
+    return gameLoader.loadMany(gameIds);
+    // return Game.find({ where: { submitterId: user.id } });
   }
 
   @Mutation(() => UserResponse)

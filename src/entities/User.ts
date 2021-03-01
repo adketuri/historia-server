@@ -37,9 +37,9 @@ export class User extends BaseEntity {
   @OneToMany(() => Game, (game) => game.submitter)
   submissions: Game[];
 
-  @Field(() => [Favorite])
+  @Field(() => [Game])
   @OneToMany(() => Favorite, (favorite) => favorite.user)
-  favorites: Favorite[];
+  favorites: Game[];
 
   @Field(() => String)
   @CreateDateColumn()
