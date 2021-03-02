@@ -1,8 +1,11 @@
-// Slugify a string
+// Slugify a game
+
+import { Game } from "src/entities/Game";
+
 // shamelessly stolen from https://lucidar.me/en/web-dev/how-to-slugify-a-string-in-javascript/
-export function slugify(str: string) {
+export function slugify(game: Game) {
+  let str = game.title;
   str = str.replace(/^\s+|\s+$/g, "");
-  console.log("sluggg ", str);
   // Make the string lowercase
   str = str.toLowerCase();
 
@@ -23,5 +26,7 @@ export function slugify(str: string) {
     // Collapse dashes
     .replace(/-+/g, "-");
 
-  return str;
+  if (str.length > 0) return str;
+
+  return game.id.toString();
 }

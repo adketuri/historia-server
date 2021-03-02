@@ -1,4 +1,5 @@
-import { MyContext } from "src/types";
+import { SLUG_PREFIX } from "../constants";
+import { MyContext } from "../types";
 import {
   Arg,
   Ctx,
@@ -65,11 +66,7 @@ export class GameResolver {
 
   @FieldResolver(() => String)
   slug(@Root() game: Game, @Ctx() {}: MyContext) {
-    const title = game.title;
-    if (title.trim().length === 0) return game.id;
-    const slugified = slugify(title);
-    if (slugified.length === 0) return game.id;
-    return slugified;
+    return slugify(game);
   }
 
   @FieldResolver(() => Boolean)
@@ -162,7 +159,19 @@ export class GameResolver {
   }
 
   @Query(() => Game, { nullable: true })
-  game(@Arg("id") id: number): Promise<Game | undefined> {
+  async game(
+    @Ctx() { redis }: MyContext,
+    @Arg("id", () => Int, { nullable: true }) id?: number,
+    @Arg("slug", { nullable: true }) slug?: string
+  ): Promise<Game | undefined> {
+    if (slug) {
+      // const game = gameSlugLoader.load(slug);
+      const idFromSlug = await redis.get(SLUG_PREFIX + slug);
+      if (idFromSlug) {
+        const game = await Game.findOne(idFromSlug);
+        if (game) return game;
+      }
+    }
     return Game.findOne(id);
   }
 
@@ -170,7 +179,7 @@ export class GameResolver {
   @UseMiddleware(isAuth)
   async createGame(
     @Arg("input") input: GameInput,
-    @Ctx() { req }: MyContext
+    @Ctx() { req, redis }: MyContext
   ): Promise<GameResponse> {
     const user = await User.findOne(req.session.userId);
     if (!user?.isSubmitter) throw new Error("User cannot submit games");
@@ -181,6 +190,7 @@ export class GameResolver {
         submitter: user,
         submitterId: user.id,
       }).save();
+      await redis.set(SLUG_PREFIX + slugify(game), game.id);
       return { game };
     } catch (err) {
       console.log(err);

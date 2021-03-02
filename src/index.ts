@@ -7,7 +7,7 @@ import Redis from "ioredis";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
-import { COOKIE_NAME, __prod__ } from "./constants";
+import { COOKIE_NAME, SLUG_PREFIX, __prod__ } from "./constants";
 import { User } from "./entities/User";
 import { GameResolver } from "./resolvers/game";
 import { HelloResolver } from "./resolvers/hello";
@@ -16,6 +16,8 @@ import { UserResolver } from "./resolvers/user";
 import { createUserLoader } from "./utils/createUserLoader";
 import { createFavoriteLoader } from "./utils/createFavoriteLoader";
 import { createGameLoader } from "./utils/createGameLoader";
+import { Game } from "./entities/Game";
+import { slugify } from "./utils/slugify";
 
 const main = async () => {
   await createConnection("default");
@@ -34,6 +36,11 @@ const main = async () => {
 
   const RedisStore = connectRedis(session);
   const redis = new Redis();
+
+  const games = await Game.find();
+  games.forEach((game) => {
+    redis.set(SLUG_PREFIX + slugify(game), game.id);
+  });
 
   app.use(
     cors({

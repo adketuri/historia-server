@@ -17,6 +17,9 @@ export class Game extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Field(() => String)
+  slug: string;
+
   @Field()
   @Column({ nullable: true })
   title: string;
