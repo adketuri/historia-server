@@ -1,5 +1,3 @@
-import { SLUG_PREFIX } from "../constants";
-import { MyContext } from "../types";
 import {
   Arg,
   Ctx,
@@ -15,10 +13,12 @@ import {
   UseMiddleware,
 } from "type-graphql";
 import { getConnection, getManager } from "typeorm";
+import { SLUG_PREFIX } from "../constants";
 import { Favorite } from "../entities/Favorite";
 import { Game } from "../entities/Game";
 import { User } from "../entities/User";
 import { isAuth } from "../middleware/isAuth";
+import { MyContext } from "../types";
 import { slugify } from "../utils/slugify";
 import { FieldError } from "./user";
 
@@ -118,6 +118,21 @@ export class GameResolver {
     return true;
   }
 
+  @Query(() => [Game])
+  async findGames(
+    @Arg("search", () => String) search: string
+  ): Promise<Game[]> {
+    if (search.length < 2) return [];
+    // This has a few pitfalls, namely for non-English searches. see: https://github.com/typeorm/typeorm/issues/1231
+    const games = await getConnection()
+      .createQueryBuilder()
+      .select("game")
+      .from(Game, "game")
+      .where("LOWER(title) LIKE :title", { title: `%${search.toLowerCase()}%` })
+      .getMany();
+    return games;
+  }
+
   @Query(() => PaginatedGames)
   async games(
     @Arg("limit", () => Int) limit: number,
@@ -139,19 +154,6 @@ export class GameResolver {
     `,
       replacements
     );
-
-    // const qb = getConnection()
-    //   .getRepository(Game)
-    //   .createQueryBuilder("g")
-    //   .innerJoinAndSelect("'g.submitter", "u", 'u.id = g."submitterId"')
-    //   .orderBy(`g."created_at"`, "DESC")
-    //   .take(realLimit + 1);
-    // if (cursor) {
-    //   qb.where('g."createdAt" < :cursor', {
-    //     cursor: new Date(parseInt(cursor)),
-    //   });
-    // }
-    // const games = await qb.getMany();
     return {
       games: games.slice(0, realLimit),
       hasMore: games.length === realLimit + 1,
