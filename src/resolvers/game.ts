@@ -129,6 +129,8 @@ export class GameResolver {
       .select("game")
       .from(Game, "game")
       .where("LOWER(title) LIKE :title", { title: `%${search.toLowerCase()}%` })
+      .leftJoinAndSelect("game.posts", "posts")
+      .leftJoinAndSelect("posts.author", "users")
       .getMany();
     return games;
   }
@@ -139,21 +141,21 @@ export class GameResolver {
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null
   ): Promise<PaginatedGames> {
     const realLimit = Math.min(50, limit);
+    const date = new Date(parseInt(cursor || "0"));
 
-    const replacements: any[] = [realLimit + 1];
-    if (cursor) replacements.push(new Date(parseInt(cursor)));
+    const qb = getConnection()
+      .createQueryBuilder()
+      .select("game")
+      .from(Game, "game");
+    if (cursor) {
+      qb.where("game.createdAt < :date", { date });
+    }
+    qb.orderBy("game.createdAt", "DESC");
+    qb.limit(realLimit + 1);
+    qb.leftJoinAndSelect("game.posts", "posts");
+    qb.leftJoinAndSelect("posts.author", "users");
 
-    const games = await getConnection().query(
-      `
-    select p.*
-    from game p
-    inner join public.user u on u.id = p."submitterId"
-    ${cursor ? `where p."createdAt" < $2` : ""}
-    order by p."createdAt" DESC
-    limit $1
-    `,
-      replacements
-    );
+    const games = await qb.getMany();
     return {
       games: games.slice(0, realLimit),
       hasMore: games.length === realLimit + 1,
@@ -170,11 +172,14 @@ export class GameResolver {
       // const game = gameSlugLoader.load(slug);
       const idFromSlug = await redis.get(SLUG_PREFIX + slug);
       if (idFromSlug) {
-        const game = await Game.findOne(idFromSlug);
+        const game = await Game.findOne(idFromSlug, {
+          relations: ["posts", "posts.author"],
+        });
+        console.log("Game from slug: ", game);
         if (game) return game;
       }
     }
-    return Game.findOne(id);
+    return Game.findOne(id, { relations: ["posts", "post.author"] });
   }
 
   @Mutation(() => GameResponse)

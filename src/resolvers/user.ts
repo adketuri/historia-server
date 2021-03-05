@@ -11,7 +11,7 @@ import {
   Root,
 } from "type-graphql";
 import argon2 from "argon2";
-import { MyContext } from "src/types";
+import { MyContext } from "../types";
 import { COOKIE_NAME, FORGOT_PASSWORD_PREFIX } from "../constants";
 import { UsernamePasswordInput } from "../UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
@@ -19,6 +19,7 @@ import { sendEmail } from "../utils/sendEmail";
 import { v4 } from "uuid";
 import { Game } from "../entities/Game";
 import { Favorite } from "../entities/Favorite";
+import { Post } from "../entities/Post";
 
 @ObjectType()
 export class FieldError {
@@ -49,6 +50,11 @@ export class UserResolver {
   @FieldResolver(() => [Game])
   submissions(@Root() user: User, @Ctx() {}: MyContext) {
     return Game.find({ where: { submitterId: user.id } });
+  }
+
+  @FieldResolver(() => [Post])
+  posts(@Root() user: User, @Ctx() {}: MyContext) {
+    return Post.find({ where: { author: user } });
   }
 
   @FieldResolver(() => [Game])

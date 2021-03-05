@@ -4,9 +4,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Game } from "./Game";
+import { User } from "./User";
 
 @ObjectType()
 @Entity()
@@ -23,7 +26,19 @@ export class Post extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Field()
+  @Field(() => String)
   @Column({ type: "text" })
-  title: string;
+  body: string;
+
+  @Field(() => Game)
+  @ManyToOne(() => Game, (game) => game.posts)
+  game: Game;
+
+  // @Field({ nullable: true })
+  // @Column({ nullable: true })
+  // authorId: number;
+
+  @Field(() => User)
+  @ManyToOne(() => User, (user) => user.posts)
+  author: User;
 }

@@ -22,7 +22,7 @@ import { slugify } from "./utils/slugify";
 const main = async () => {
   await createConnection("default");
 
-  // await Game.delete({});
+  // await User.delete({});
   // await getConnection().runMigrations();
 
   await User.update(

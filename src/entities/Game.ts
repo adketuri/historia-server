@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   Entity,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Post } from "./Post";
 import { User } from "./User";
 
 @ObjectType()
@@ -66,6 +68,10 @@ export class Game extends BaseEntity {
   // @Field(() => [Favorite])
   // @OneToMany(() => Favorite, (favorite) => favorite.game)
   // favorites: Favorite[];
+
+  @Field(() => [Post], { nullable: true })
+  @OneToMany(() => Post, (post) => post.game)
+  posts: Post[];
 
   @Field(() => String)
   @CreateDateColumn()
