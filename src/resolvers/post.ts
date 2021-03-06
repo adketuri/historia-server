@@ -44,6 +44,10 @@ export class PostResolver {
     @Arg("gameId", () => Int) gameId: number,
     @Arg("body") body: string
   ): Promise<Post | undefined> {
+    if (body.length < 10) {
+      throw new Error("Please write a comment with at least ten characters.")!;
+    }
+
     const game = await Game.findOne(gameId, { relations: ["posts"] });
     if (!game) throw new Error("No game with that id");
 

@@ -1,6 +1,7 @@
 import { ApolloServer } from "apollo-server-express";
 import connectRedis from "connect-redis";
 import cors from "cors";
+import "dotenv-safe/config";
 import express from "express";
 import session from "express-session";
 import Redis from "ioredis";
@@ -8,19 +9,42 @@ import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
 import { COOKIE_NAME, SLUG_PREFIX, __prod__ } from "./constants";
+import { Game } from "./entities/Game";
 import { User } from "./entities/User";
 import { GameResolver } from "./resolvers/game";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
-import { createUserLoader } from "./utils/createUserLoader";
 import { createFavoriteLoader } from "./utils/createFavoriteLoader";
 import { createGameLoader } from "./utils/createGameLoader";
-import { Game } from "./entities/Game";
+import { createUserLoader } from "./utils/createUserLoader";
 import { slugify } from "./utils/slugify";
 
 const main = async () => {
-  await createConnection("default");
+  await createConnection({
+    type: "postgres",
+    url: process.env.DATABASE_URL,
+    logging: true,
+    synchronize: true,
+    migrations: ["dist/migrations/*.js"],
+    entities: ["dist/entities/*.js"],
+  });
+
+  // {
+  //   "name": "default",
+  //   "type": "postgres",
+  //   "database": "historia",
+  //   "username": "andrew",
+  //   "password": "andrew",
+  //   "logging": true,
+  //   "synchronize": true,
+  //   "entities": [
+  //     "dist/entities/*.js"
+  //   ],
+  //   "migrations": [
+  //     "dist/migrations/*.js"
+  //   ]
+  // }
 
   // await User.delete({});
   // await getConnection().runMigrations();
@@ -35,7 +59,7 @@ const main = async () => {
   const app = express();
 
   const RedisStore = connectRedis(session);
-  const redis = new Redis();
+  const redis = new Redis(process.env.REDIS_URL);
 
   const games = await Game.find();
   games.forEach((game) => {
@@ -45,7 +69,7 @@ const main = async () => {
   app.set("trust proxy", 1);
   app.use(
     cors({
-      origin: "http://localhost:3000",
+      origin: process.env.CORS_ORIGIN,
       credentials: true,
     })
   );
@@ -61,9 +85,10 @@ const main = async () => {
         httpOnly: true,
         sameSite: "lax",
         secure: __prod__,
+        //domain: __prod__ ? "rm2k.net" : undefined
       },
       saveUninitialized: false,
-      secret: "thisshouldbeanenvvariable",
+      secret: process.env.SESSION_SECRET,
       resave: false,
     })
   );
@@ -85,10 +110,23 @@ const main = async () => {
 
   apolloServer.applyMiddleware({ app, cors: false });
 
+  app.use(
+    "/s3",
+    require("react-dropzone-s3-uploader/s3router")({
+      bucket: "rm2k",
+      region: "us-east-1", //optional
+      signatureVersion: "v4", //optional (use for some amazon regions: frankfurt and others)
+      signatureExpires: 60, //optional, number of seconds the upload signed URL should be valid for (defaults to 60)
+      headers: { "Access-Control-Allow-Origin": "*" }, // optional
+      ACL: "public-read",
+      uniquePrefix: true, // (4.0.2 and above) default is true, setting the attribute to false preserves the original filename in S3
+    })
+  );
+
   app.get("/", (_, res) => {
     res.send("hello");
   });
-  app.listen(4000, () => {
+  app.listen(parseInt(process.env.PORT), () => {
     console.log("Server started");
   });
 };
