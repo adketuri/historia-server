@@ -30,28 +30,13 @@ const main = async () => {
     entities: ["dist/entities/*.js"],
   });
 
-  // {
-  //   "name": "default",
-  //   "type": "postgres",
-  //   "database": "historia",
-  //   "username": "andrew",
-  //   "password": "andrew",
-  //   "logging": true,
-  //   "synchronize": true,
-  //   "entities": [
-  //     "dist/entities/*.js"
-  //   ],
-  //   "migrations": [
-  //     "dist/migrations/*.js"
-  //   ]
-  // }
-
   // await User.delete({});
   // await getConnection().runMigrations();
 
   await User.update(
     { username: "andrew" },
     {
+      isAdmin: true,
       isSubmitter: true,
     }
   );
@@ -119,7 +104,7 @@ const main = async () => {
       signatureExpires: 60, //optional, number of seconds the upload signed URL should be valid for (defaults to 60)
       headers: { "Access-Control-Allow-Origin": "*" }, // optional
       ACL: "public-read",
-      uniquePrefix: true, // (4.0.2 and above) default is true, setting the attribute to false preserves the original filename in S3
+      uniquePrefix: false, // (4.0.2 and above) default is true, setting the attribute to false preserves the original filename in S3
     })
   );
 

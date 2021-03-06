@@ -1,3 +1,4 @@
+import { Screenshot } from "../entities/Screenshot";
 import {
   Arg,
   Ctx,
@@ -85,19 +86,52 @@ export class GameResolver {
     return !!favorited;
   }
 
+  @Mutation(() => Screenshot)
+  @UseMiddleware(isAuth)
+  async createScreenshot(
+    @Arg("gameId", () => Int) gameId: number,
+    @Arg("url", () => String) url: string,
+    @Ctx() { req }: MyContext
+  ): Promise<Screenshot | undefined> {
+    // Get the game, it must exist to add screenshots
+    const game = await Game.findOne(gameId, { relations: ["screenshots"] });
+    if (!game) throw Error("No game with that id");
+
+    // Get the user and their screenshots
+    const user = await User.findOne(req.session.userId, {
+      relations: ["screenshots"],
+    });
+    if (!user) throw Error("No user to load!");
+
+    // Create the new screenshot
+    const screenshot = await Screenshot.create({
+      url,
+      game,
+      submitter: user,
+      verified: user.isAdmin,
+    }).save();
+
+    // Associate with user+game and save those
+    user.screenshots.push(screenshot);
+    game.screenshots.push(screenshot);
+    await user.save();
+    await game.save();
+
+    return screenshot;
+  }
+
   @Mutation(() => Boolean)
   @UseMiddleware(isAuth)
   async favorite(
     @Arg("gameId", () => Int) gameId: number,
     @Arg("add", () => Boolean) add: boolean,
-
     @Ctx() { req }: MyContext
   ) {
     const { userId } = req.session;
 
     // Get the game, it must exist to favorite
     const game = await Game.findOne(gameId);
-    if (!game) return false;
+    if (!game) throw Error("No game with that id");
 
     // If we already have a favorite, we want to remove. otherwise, add.
     // const add = !(await Favorite.findOne({ where: { userId, gameId } }));
@@ -131,6 +165,7 @@ export class GameResolver {
       .where("LOWER(title) LIKE :title", { title: `%${search.toLowerCase()}%` })
       .leftJoinAndSelect("game.posts", "posts")
       .leftJoinAndSelect("posts.author", "users")
+      .leftJoinAndSelect("game.screenshots", "screenshots")
       .getMany();
     return games;
   }
@@ -154,6 +189,7 @@ export class GameResolver {
     qb.limit(realLimit + 1);
     qb.leftJoinAndSelect("game.posts", "posts");
     qb.leftJoinAndSelect("posts.author", "users");
+    qb.leftJoinAndSelect("game.screenshots", "screenshots");
 
     const games = await qb.getMany();
     return {
@@ -173,9 +209,8 @@ export class GameResolver {
       const idFromSlug = await redis.get(SLUG_PREFIX + slug);
       if (idFromSlug) {
         const game = await Game.findOne(idFromSlug, {
-          relations: ["posts", "posts.author"],
+          relations: ["posts", "posts.author", "screenshots"],
         });
-        console.log("Game from slug: ", game);
         if (game) return game;
       }
     }

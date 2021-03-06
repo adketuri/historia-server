@@ -51,12 +51,10 @@ export class PostResolver {
     const game = await Game.findOne(gameId, { relations: ["posts"] });
     if (!game) throw new Error("No game with that id");
 
-    // const user = await userLoader.load(req.session.userId);
     const user = await User.findOne(req.session.userId, {
       relations: ["posts"],
     });
     if (!user) throw new Error("No user to load");
-    console.log("user: ", user);
 
     const post = await Post.create({
       body,

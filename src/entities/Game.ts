@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { Post } from "./Post";
+import { Screenshot } from "./Screenshot";
 import { User } from "./User";
 
 @ObjectType()
@@ -65,13 +66,13 @@ export class Game extends BaseEntity {
   @Column({ default: 0 })
   favoriteCount: number;
 
-  // @Field(() => [Favorite])
-  // @OneToMany(() => Favorite, (favorite) => favorite.game)
-  // favorites: Favorite[];
-
   @Field(() => [Post], { nullable: true })
   @OneToMany(() => Post, (post) => post.game)
   posts: Post[];
+
+  @Field(() => [Screenshot], { nullable: true })
+  @OneToMany(() => Screenshot, (screenshot) => screenshot.game)
+  screenshots: Screenshot[];
 
   @Field(() => String)
   @CreateDateColumn()
