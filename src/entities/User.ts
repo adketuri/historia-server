@@ -24,6 +24,10 @@ export class User extends BaseEntity {
   @Column({ type: "text", unique: true })
   username: string;
 
+  @Field(() => String, { nullable: true })
+  @Column({ type: "text", nullable: true })
+  profile: string;
+
   @Column({ type: "text" })
   password: string;
 
@@ -31,10 +35,11 @@ export class User extends BaseEntity {
   @Column({ type: "text", unique: true, nullable: true })
   email: string;
 
-  @Field()
+  @Field(() => Boolean)
   @Column({ type: "boolean", default: "false" })
   isSubmitter: boolean;
 
+  @Field(() => Boolean)
   @Column({ type: "boolean", default: "false" })
   isAdmin: boolean;
 

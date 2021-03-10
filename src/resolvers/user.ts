@@ -154,6 +154,11 @@ export class UserResolver {
     return User.findOne(req.session.userId);
   }
 
+  @Query(() => User, { nullable: true })
+  user(@Arg("username", () => String) username: string) {
+    return User.findOne({ where: { username } });
+  }
+
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,

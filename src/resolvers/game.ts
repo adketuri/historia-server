@@ -22,6 +22,9 @@ import { isAuth } from "../middleware/isAuth";
 import { MyContext } from "../types";
 import { slugify } from "../utils/slugify";
 import { FieldError } from "./user";
+import { Post } from "../entities/Post";
+import { weekNumber } from "../utils/weekNumber";
+import { random } from "../utils/random";
 
 @InputType()
 class GameInput {
@@ -51,6 +54,21 @@ class GameResponse {
 }
 
 @ObjectType()
+class HomepageResponse {
+  @Field(() => [Game])
+  promotedGames: Game[];
+
+  @Field(() => [Screenshot])
+  newScreenshots: Screenshot[];
+
+  @Field(() => [Post])
+  newPosts: Post[];
+
+  @Field(() => [Game])
+  newGames: Game[];
+}
+
+@ObjectType()
 class PaginatedGames {
   @Field(() => [Game])
   games: Game[];
@@ -76,7 +94,7 @@ export class GameResolver {
     @Ctx() { favoriteLoader, req }: MyContext
   ) {
     if (!req.session.userId) {
-      return null;
+      return false;
     }
 
     const favorited = await favoriteLoader.load({
@@ -152,6 +170,43 @@ export class GameResolver {
     return true;
   }
 
+  @Query(() => HomepageResponse)
+  async homepage(): Promise<HomepageResponse | undefined> {
+    // This is a little awkward but it's deterministic at least
+    // 1. Get all games (only with favorites down the road?)
+    // 2. Seed three random numbers based on the week number
+    // 3. Index into the favorites list based on those numbers
+    const qb = getConnection()
+      .createQueryBuilder()
+      .select("game")
+      .from(Game, "game")
+      // .where("game.favoriteCount > 0")
+      .orderBy("game.createdAt", "DESC")
+      .leftJoinAndSelect("game.posts", "posts")
+      .leftJoinAndSelect("posts.author", "users")
+      .leftJoinAndSelect("game.screenshots", "screenshots");
+    const allGames = await qb.getMany();
+    const promotedGames: Game[] = [];
+    var seed = weekNumber(new Date());
+    for (var i = 0; i < 3; i++) {
+      var idx = Math.floor(random(seed++) * allGames.length);
+      promotedGames.push(allGames[idx]); // TODO: guarantee uniqueness
+    }
+
+    const newScreenshots = await Screenshot.find({
+      take: 5,
+      relations: ["game"],
+    });
+    const newPosts = await Post.find({ take: 5, relations: ["game"] });
+
+    return {
+      promotedGames,
+      newScreenshots,
+      newPosts,
+      newGames: allGames.slice(0, Math.min(10, allGames.length)),
+    };
+  }
+
   @Query(() => [Game])
   async findGames(
     @Arg("search", () => String) search: string
@@ -164,6 +219,7 @@ export class GameResolver {
       .from(Game, "game")
       .where("LOWER(title) LIKE :title", { title: `%${search.toLowerCase()}%` })
       .leftJoinAndSelect("game.posts", "posts")
+      .orderBy(`posts."createdAt"`, "ASC")
       .leftJoinAndSelect("posts.author", "users")
       .leftJoinAndSelect("game.screenshots", "screenshots")
       .getMany();
@@ -185,12 +241,12 @@ export class GameResolver {
     if (cursor) {
       qb.where("game.createdAt < :date", { date });
     }
-    qb.orderBy("game.createdAt", "DESC");
-    qb.limit(realLimit + 1);
-    qb.leftJoinAndSelect("game.posts", "posts");
-    qb.leftJoinAndSelect("posts.author", "users");
-    qb.leftJoinAndSelect("game.screenshots", "screenshots");
-
+    qb.orderBy("game.createdAt", "DESC")
+      .limit(realLimit + 1)
+      .leftJoinAndSelect("game.posts", "posts")
+      // .orderBy(`posts."createdAt"`, "ASC") // TODO: this breaks game listing?
+      .leftJoinAndSelect("posts.author", "users")
+      .leftJoinAndSelect("game.screenshots", "screenshots");
     const games = await qb.getMany();
     return {
       games: games.slice(0, realLimit),
@@ -204,17 +260,19 @@ export class GameResolver {
     @Arg("id", () => Int, { nullable: true }) id?: number,
     @Arg("slug", { nullable: true }) slug?: string
   ): Promise<Game | undefined> {
-    if (slug) {
-      // const game = gameSlugLoader.load(slug);
-      const idFromSlug = await redis.get(SLUG_PREFIX + slug);
-      if (idFromSlug) {
-        const game = await Game.findOne(idFromSlug, {
-          relations: ["posts", "posts.author", "screenshots"],
-        });
-        if (game) return game;
-      }
-    }
-    return Game.findOne(id, { relations: ["posts", "post.author"] });
+    const gid = id ? id : await redis.get(SLUG_PREFIX + slug);
+
+    const qb = getConnection()
+      .createQueryBuilder()
+      .select("game")
+      .from(Game, "game")
+      .where("game.id = :id", { id: gid })
+      .orderBy("game.createdAt", "DESC")
+      .leftJoinAndSelect("game.posts", "posts")
+      .orderBy(`posts."createdAt"`, "ASC")
+      .leftJoinAndSelect("posts.author", "users")
+      .leftJoinAndSelect("game.screenshots", "screenshots");
+    return await qb.getOne();
   }
 
   @Mutation(() => GameResponse)

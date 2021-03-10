@@ -28,6 +28,7 @@ export class PostResolver {
       .getRepository(Post)
       .createQueryBuilder("post")
       .leftJoinAndSelect("post.author", "user")
+      .orderBy(`post."createdAt"`, "ASC")
       .getMany();
     // return Post.find({ relations: ["user"] });
   }
@@ -74,15 +75,23 @@ export class PostResolver {
   }
 
   @Mutation(() => Post, { nullable: true })
+  @UseMiddleware(isAuth)
   async updatePost(
-    @Arg("id") id: number,
+    @Ctx() { req }: MyContext,
+    @Arg("id", () => Int!) id: number,
     @Arg("body") body: string
   ): Promise<Post | undefined> {
-    const post = await Post.findOne(id);
-    if (!post) return undefined;
+    if (body.length < 10) {
+      throw new Error("Please write a comment with at least ten characters.")!;
+    }
+    const post = await Post.findOne(id, { relations: ["author"] });
+    if (!post) throw new Error("No post found");
+    if (post.author.id !== req.session.userId)
+      throw new Error("You must be the author of the post");
+
     post.body = body;
     post.updatedAt = new Date();
-    Post.update({ id: post.id }, post);
+    Post.update({ id }, post);
     return post;
   }
 

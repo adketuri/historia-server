@@ -7,7 +7,7 @@ import session from "express-session";
 import Redis from "ioredis";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
-import { createConnection } from "typeorm";
+import { createConnection, getConnection } from "typeorm";
 import { COOKIE_NAME, SLUG_PREFIX, __prod__ } from "./constants";
 import { Game } from "./entities/Game";
 import { User } from "./entities/User";
@@ -31,7 +31,7 @@ const main = async () => {
   });
 
   // await User.delete({});
-  // await getConnection().runMigrations();
+  await getConnection().runMigrations();
 
   await User.update(
     { username: "andrew" },
