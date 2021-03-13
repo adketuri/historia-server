@@ -25,6 +25,7 @@ import { FieldError } from "./user";
 import { Post } from "../entities/Post";
 import { weekNumber } from "../utils/weekNumber";
 import { random } from "../utils/random";
+import { Download } from "../entities/Download";
 
 @InputType()
 class GameInput {
@@ -38,6 +39,8 @@ class GameInput {
   shortDescription: string;
   @Field({ nullable: true })
   longDescription: string;
+  @Field({ nullable: true })
+  tags: string;
   @Field({ nullable: true })
   thumbnail: string;
   @Field({ nullable: true })
@@ -76,6 +79,18 @@ class PaginatedGames {
   hasMore: boolean;
 }
 
+function validateInput(input: GameInput): FieldError[] | undefined {
+  const errors: FieldError[] = [];
+  if (input.title.length < 1) {
+    errors.push({
+      field: "title",
+      message: "Title must be at least 1 character.",
+    });
+  }
+  if (errors.length > 0) return errors;
+  return undefined;
+}
+
 @Resolver(Game)
 export class GameResolver {
   @FieldResolver(() => User)
@@ -102,6 +117,40 @@ export class GameResolver {
       userId: req.session.userId,
     });
     return !!favorited;
+  }
+
+  @Mutation(() => Download)
+  @UseMiddleware(isAuth)
+  async createDownload(
+    @Arg("gameId", () => Int) gameId: number,
+    @Arg("url", () => String) url: string,
+    @Ctx() { req }: MyContext
+  ): Promise<Download | undefined> {
+    // Get the game, it must exist to add downloads
+    const game = await Game.findOne(gameId, { relations: ["downloads"] });
+    if (!game) throw Error("No game with that id");
+
+    // Get the user and their downloads
+    const user = await User.findOne(req.session.userId, {
+      relations: ["downloads"],
+    });
+    if (!user) throw Error("No user to load!");
+
+    // Create the new download
+    const download = await Download.create({
+      url,
+      game,
+      submitter: user,
+      verified: user.isAdmin,
+    }).save();
+
+    // Associate with user+game and save those
+    user.downloads.push(download);
+    game.downloads.push(download);
+    await user.save();
+    await game.save();
+
+    return download;
   }
 
   @Mutation(() => Screenshot)
@@ -184,20 +233,32 @@ export class GameResolver {
       .orderBy("game.createdAt", "DESC")
       .leftJoinAndSelect("game.posts", "posts")
       .leftJoinAndSelect("posts.author", "users")
-      .leftJoinAndSelect("game.screenshots", "screenshots");
+      .leftJoinAndSelect("game.screenshots", "screenshots")
+      .leftJoinAndSelect("game.downloads", "downloads");
     const allGames = await qb.getMany();
+
+    // Add up to 3 games, ensuring there are no duplicates
     const promotedGames: Game[] = [];
     var seed = weekNumber(new Date());
-    for (var i = 0; i < 3; i++) {
+    var gamesAdded = 0;
+    while (gamesAdded < Math.min(3, allGames.length)) {
       var idx = Math.floor(random(seed++) * allGames.length);
-      promotedGames.push(allGames[idx]); // TODO: guarantee uniqueness
+      if (!promotedGames.find((g) => g.id === allGames[idx].id)) {
+        promotedGames.push(allGames[idx]);
+        gamesAdded++;
+      }
     }
-
+    // Add latest screenshots/posts. These ones are a bit more sane.
     const newScreenshots = await Screenshot.find({
+      take: 6,
+      relations: ["game"],
+      order: { createdAt: "DESC" },
+    });
+    const newPosts = await Post.find({
       take: 5,
       relations: ["game"],
+      order: { createdAt: "DESC" },
     });
-    const newPosts = await Post.find({ take: 5, relations: ["game"] });
 
     return {
       promotedGames,
@@ -222,6 +283,7 @@ export class GameResolver {
       .orderBy(`posts."createdAt"`, "ASC")
       .leftJoinAndSelect("posts.author", "users")
       .leftJoinAndSelect("game.screenshots", "screenshots")
+      .leftJoinAndSelect("game.downloads", "downloads")
       .getMany();
     return games;
   }
@@ -246,7 +308,8 @@ export class GameResolver {
       .leftJoinAndSelect("game.posts", "posts")
       // .orderBy(`posts."createdAt"`, "ASC") // TODO: this breaks game listing?
       .leftJoinAndSelect("posts.author", "users")
-      .leftJoinAndSelect("game.screenshots", "screenshots");
+      .leftJoinAndSelect("game.screenshots", "screenshots")
+      .leftJoinAndSelect("game.downloads", "downloads");
     const games = await qb.getMany();
     return {
       games: games.slice(0, realLimit),
@@ -271,8 +334,50 @@ export class GameResolver {
       .leftJoinAndSelect("game.posts", "posts")
       .orderBy(`posts."createdAt"`, "ASC")
       .leftJoinAndSelect("posts.author", "users")
-      .leftJoinAndSelect("game.screenshots", "screenshots");
+      .leftJoinAndSelect("game.screenshots", "screenshots")
+      .leftJoinAndSelect("game.downloads", "downloads");
     return await qb.getOne();
+  }
+
+  @Mutation(() => GameResponse)
+  @UseMiddleware(isAuth)
+  async updateGame(
+    @Arg("id", () => Int!) id: number,
+    @Arg("input") input: GameInput,
+    @Ctx() { req, redis }: MyContext
+  ): Promise<GameResponse> {
+    const user = await User.findOne(req.session.userId);
+    if (!user?.isSubmitter) throw new Error("User cannot submit games");
+
+    const game = await Game.findOne(id);
+    if (!game) throw new Error("No game exists with that id");
+
+    try {
+      const inputErrors = validateInput(input);
+      if (inputErrors) return { errors: inputErrors };
+      game.title = input.title;
+      game.shortDescription = input.shortDescription;
+      game.longDescription = input.longDescription;
+      game.tags = input.tags;
+      game.author = input.author;
+      game.year = input.year;
+      if (input.thumbnail) game.thumbnail = input.thumbnail;
+      if (input.banner) game.banner = input.banner;
+      game.save();
+      console.log("!AK input ", input);
+      await redis.set(SLUG_PREFIX + slugify(game), game.id);
+      return { game };
+    } catch (err) {
+      console.log(err);
+      return {
+        errors: [
+          {
+            field: "title",
+            message: "Unknown error?",
+          },
+        ],
+      };
+    }
   }
 
   @Mutation(() => GameResponse)
@@ -303,19 +408,6 @@ export class GameResolver {
         ],
       };
     }
-  }
-
-  @Mutation(() => Game, { nullable: true })
-  async updateGame(
-    @Arg("id") id: number,
-    @Arg("title") title: string
-  ): Promise<Game | undefined> {
-    const game = await Game.findOne(id);
-    if (!game) return undefined;
-    game.title = title;
-    game.updatedAt = new Date();
-    Game.update({ id: game.id }, game);
-    return game;
   }
 
   @Mutation(() => Boolean)

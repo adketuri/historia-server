@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Download } from "./Download";
 import { Favorite } from "./Favorite";
 import { Game } from "./Game";
 import { Post } from "./Post";
@@ -58,6 +59,10 @@ export class User extends BaseEntity {
   @Field(() => [Screenshot], { nullable: true })
   @OneToMany(() => Screenshot, (screenshot) => screenshot.submitter)
   screenshots: Screenshot[];
+
+  @Field(() => [Download], { nullable: true })
+  @OneToMany(() => Download, (download) => download.submitter)
+  downloads: Download[];
 
   @Field(() => String)
   @CreateDateColumn()

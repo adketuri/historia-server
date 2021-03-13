@@ -9,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Download } from "./Download";
 import { Post } from "./Post";
 import { Screenshot } from "./Screenshot";
 import { User } from "./User";
@@ -30,6 +31,10 @@ export class Game extends BaseEntity {
   @Field({ nullable: true })
   @Column({ type: "text", nullable: true })
   author: string;
+
+  @Field({ nullable: true })
+  @Column({ type: "text", nullable: true })
+  tags: string;
 
   @Field({ nullable: true })
   @Column({ nullable: true })
@@ -73,6 +78,10 @@ export class Game extends BaseEntity {
   @Field(() => [Screenshot], { nullable: true })
   @OneToMany(() => Screenshot, (screenshot) => screenshot.game)
   screenshots: Screenshot[];
+
+  @Field(() => [Download], { nullable: true })
+  @OneToMany(() => Download, (download) => download.game)
+  downloads: Download[];
 
   @Field(() => String)
   @CreateDateColumn()
