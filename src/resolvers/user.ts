@@ -9,6 +9,7 @@ import {
   Query,
   Resolver,
   Root,
+  UseMiddleware,
 } from "type-graphql";
 import argon2 from "argon2";
 import { MyContext } from "../types";
@@ -20,6 +21,7 @@ import { v4 } from "uuid";
 import { Game } from "../entities/Game";
 import { Favorite } from "../entities/Favorite";
 import { Post } from "../entities/Post";
+import { isAuth } from "../middleware/isAuth";
 
 @ObjectType()
 export class FieldError {
@@ -68,6 +70,30 @@ export class UserResolver {
     console.log(gameIds);
     return gameLoader.loadMany(gameIds);
     // return Game.find({ where: { submitterId: user.id } });
+  }
+
+  @Mutation(() => UserResponse)
+  @UseMiddleware(isAuth)
+  async changeProfile(
+    @Arg("newProfile") newProfile: string,
+    @Ctx() { req }: MyContext
+  ): Promise<UserResponse | undefined> {
+    if (newProfile.length > 1000) {
+      return {
+        errors: [
+          {
+            field: "profile",
+            message: "Please keep profiles under 1000 characters.",
+          },
+        ],
+      };
+    }
+
+    const user = await User.findOne(req.session.userId);
+    if (!user) throw new Error("Unexpected error finding user from session");
+    user.profile = newProfile;
+    await user.save();
+    return { user };
   }
 
   @Mutation(() => UserResponse)
