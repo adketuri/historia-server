@@ -80,12 +80,14 @@ export class UserResolver {
   async updateUser(
     @Arg("id", () => Int!) id: number,
     @Arg("isBanned", { nullable: true }) isBanned?: boolean,
-    @Arg("isSubmitter", { nullable: true }) isSubmitter?: boolean
+    @Arg("isSubmitter", { nullable: true }) isSubmitter?: boolean,
+    @Arg("isVerified", { nullable: true }) isVerified?: boolean
   ): Promise<Boolean | undefined> {
     const user = await User.findOne(id);
     if (!user) throw new Error("No user to update");
     if (isBanned !== undefined) user.isBanned = isBanned;
     if (isSubmitter !== undefined) user.isSubmitter = isSubmitter;
+    if (isVerified !== undefined) user.isVerified = isVerified;
     await user.save();
     return true;
   }
