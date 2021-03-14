@@ -243,7 +243,7 @@ export class GameResolver {
     const promotedGames: Game[] = [];
     var seed = weekNumber(new Date());
     var gamesAdded = 0;
-    while (gamesAdded < Math.min(3, allGames.length)) {
+    while (gamesAdded < Math.min(9, allGames.length)) {
       var idx = Math.floor(random(seed++) * allGames.length);
       if (!promotedGames.find((g) => g.id === allGames[idx].id)) {
         promotedGames.push(allGames[idx]);
