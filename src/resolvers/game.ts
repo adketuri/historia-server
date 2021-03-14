@@ -26,6 +26,8 @@ import { Post } from "../entities/Post";
 import { weekNumber } from "../utils/weekNumber";
 import { random } from "../utils/random";
 import { Download } from "../entities/Download";
+import { isSubmitter } from "../middleware/isSubmitter";
+import { isAdmin } from "../middleware/isAdmin";
 
 @InputType()
 class GameInput {
@@ -120,7 +122,7 @@ export class GameResolver {
   }
 
   @Mutation(() => Download)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(isSubmitter)
   async createDownload(
     @Arg("gameId", () => Int) gameId: number,
     @Arg("url", () => String) url: string,
@@ -141,7 +143,7 @@ export class GameResolver {
       url,
       game,
       submitter: user,
-      verified: user.isAdmin,
+      verified: user.isSubmitter || user.isAdmin,
     }).save();
 
     // Associate with user+game and save those
@@ -154,7 +156,7 @@ export class GameResolver {
   }
 
   @Mutation(() => Screenshot)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(isSubmitter)
   async createScreenshot(
     @Arg("gameId", () => Int) gameId: number,
     @Arg("url", () => String) url: string,
@@ -175,7 +177,7 @@ export class GameResolver {
       url,
       game,
       submitter: user,
-      verified: user.isAdmin,
+      verified: user.isAdmin || user.isSubmitter,
     }).save();
 
     // Associate with user+game and save those
@@ -303,13 +305,13 @@ export class GameResolver {
     if (cursor) {
       qb.where("game.createdAt < :date", { date });
     }
-    qb.orderBy("game.createdAt", "DESC")
-      .limit(realLimit + 1)
-      .leftJoinAndSelect("game.posts", "posts")
+    qb.leftJoinAndSelect("game.posts", "posts")
       // .orderBy(`posts."createdAt"`, "ASC") // TODO: this breaks game listing?
       .leftJoinAndSelect("posts.author", "users")
       .leftJoinAndSelect("game.screenshots", "screenshots")
-      .leftJoinAndSelect("game.downloads", "downloads");
+      .leftJoinAndSelect("game.downloads", "downloads")
+      .orderBy("game.createdAt", "DESC")
+      .take(realLimit + 1);
     const games = await qb.getMany();
     return {
       games: games.slice(0, realLimit),
@@ -340,17 +342,19 @@ export class GameResolver {
   }
 
   @Mutation(() => GameResponse)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(isSubmitter)
   async updateGame(
     @Arg("id", () => Int!) id: number,
     @Arg("input") input: GameInput,
     @Ctx() { req, redis }: MyContext
   ): Promise<GameResponse> {
     const user = await User.findOne(req.session.userId);
-    if (!user?.isSubmitter) throw new Error("User cannot submit games");
-
     const game = await Game.findOne(id);
     if (!game) throw new Error("No game exists with that id");
+
+    if (game.submitter.id !== user?.id && !user?.isAdmin) {
+      throw new Error("User does not have permission to update this game.");
+    }
 
     try {
       const inputErrors = validateInput(input);
@@ -364,7 +368,6 @@ export class GameResolver {
       if (input.thumbnail) game.thumbnail = input.thumbnail;
       if (input.banner) game.banner = input.banner;
       game.save();
-      console.log("!AK input ", input);
       await redis.set(SLUG_PREFIX + slugify(game), game.id);
       return { game };
     } catch (err) {
@@ -381,7 +384,7 @@ export class GameResolver {
   }
 
   @Mutation(() => GameResponse)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(isSubmitter)
   async createGame(
     @Arg("input") input: GameInput,
     @Ctx() { req, redis }: MyContext
@@ -411,6 +414,7 @@ export class GameResolver {
   }
 
   @Mutation(() => Boolean)
+  @UseMiddleware(isAdmin)
   async deleteGame(@Arg("id") id: number): Promise<boolean> {
     await Game.delete({ id: id });
     return true;

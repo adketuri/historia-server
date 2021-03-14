@@ -1,4 +1,4 @@
-import { MyContext } from "src/types";
+import { MyContext } from "../types";
 import { MiddlewareFn } from "type-graphql";
 
 // Checks if user is authenticated

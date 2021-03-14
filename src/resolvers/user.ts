@@ -4,6 +4,7 @@ import {
   Ctx,
   Field,
   FieldResolver,
+  Int,
   Mutation,
   ObjectType,
   Query,
@@ -22,6 +23,7 @@ import { Game } from "../entities/Game";
 import { Favorite } from "../entities/Favorite";
 import { Post } from "../entities/Post";
 import { isAuth } from "../middleware/isAuth";
+import { isAdmin } from "../middleware/isAdmin";
 
 @ObjectType()
 export class FieldError {
@@ -61,15 +63,27 @@ export class UserResolver {
 
   @FieldResolver(() => [Game])
   async favorites(@Root() user: User, @Ctx() { gameLoader }: MyContext) {
-    // return userLoader.load(game.submitterId);
     const favorites = await Favorite.find({ where: { userId: user.id } });
     let gameIds: number[] = [];
     favorites.forEach((favorite) => {
       gameIds.push(favorite.gameId);
     });
-    console.log(gameIds);
     return gameLoader.loadMany(gameIds);
-    // return Game.find({ where: { submitterId: user.id } });
+  }
+
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAdmin)
+  async updateUser(
+    @Arg("id", () => Int!) id: number,
+    @Arg("isBanned", { nullable: true }) isBanned?: boolean,
+    @Arg("isSubmitter", { nullable: true }) isSubmitter?: boolean
+  ): Promise<Boolean | undefined> {
+    const user = await User.findOne(id);
+    if (!user) throw new Error("No user to update");
+    if (isBanned !== undefined) user.isBanned = isBanned;
+    if (isSubmitter !== undefined) user.isSubmitter = isSubmitter;
+    await user.save();
+    return true;
   }
 
   @Mutation(() => UserResponse)
