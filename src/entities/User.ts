@@ -46,6 +46,10 @@ export class User extends BaseEntity {
 
   @Field(() => Boolean)
   @Column({ type: "boolean", default: "false" })
+  isVerified: boolean;
+
+  @Field(() => Boolean)
+  @Column({ type: "boolean", default: "false" })
   isAdmin: boolean;
 
   @Field(() => [Game])

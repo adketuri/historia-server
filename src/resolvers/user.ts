@@ -14,7 +14,11 @@ import {
 } from "type-graphql";
 import argon2 from "argon2";
 import { MyContext } from "../types";
-import { COOKIE_NAME, FORGOT_PASSWORD_PREFIX } from "../constants";
+import {
+  COOKIE_NAME,
+  FORGOT_PASSWORD_PREFIX,
+  VERIFY_PREFIX,
+} from "../constants";
 import { UsernamePasswordInput } from "../UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
@@ -110,6 +114,25 @@ export class UserResolver {
     return { user };
   }
 
+  @Mutation(() => Boolean)
+  async verifyEmail(
+    @Arg("token") token: string,
+    @Ctx() { req, redis }: MyContext
+  ): Promise<Boolean> {
+    const key = VERIFY_PREFIX + token;
+    const userId = await redis.get(key);
+    if (!userId) return false;
+
+    const userIdNum = parseInt(userId);
+    const user = await User.findOne(userIdNum);
+    if (!user) return false;
+
+    await User.update({ id: userIdNum }, { isVerified: true });
+    req.session.userId = user.id;
+    await redis.del(key);
+    return true;
+  }
+
   @Mutation(() => UserResponse)
   async changePassword(
     @Arg("token") token: string,
@@ -183,7 +206,7 @@ export class UserResolver {
     ); // 3 days
 
     // send out an email
-    const html = `<a href="http://localhost:3000/change-password/${token}">Reset Password</a>`;
+    const html = `Hi there! Click below to reset your password:<br/><br/><a href="${process.env.CORS_ORIGIN}/change-password/${token}">Reset Password</a>`;
     await sendEmail(email, html);
     return true;
   }
@@ -202,7 +225,7 @@ export class UserResolver {
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { req }: MyContext
+    @Ctx() { req, redis }: MyContext
   ): Promise<UserResponse> {
     let errors = validateRegister(options);
     if (errors) {
@@ -211,12 +234,21 @@ export class UserResolver {
 
     const hashedPassword = await argon2.hash(options.password);
     try {
+      // Try to create the user + set our session id
       const user = await User.create({
         username: options.username,
         email: options.email,
         password: hashedPassword,
       }).save();
       req.session.userId = user.id;
+
+      // Email out a verify link
+      const token = v4();
+      await redis.set(VERIFY_PREFIX + token, user.id, "ex", 1000 * 60 * 60 * 7); // 7 days
+      const html = `Hi there! Click below to verify your email address:<br/><br/><a href="${process.env.CORS_ORIGIN}/verify/${token}">Verify Email</a>`;
+      await sendEmail(options.email, html);
+
+      // Return our user, done
       return { user };
     } catch (err) {
       console.log(err);
