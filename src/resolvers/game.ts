@@ -89,6 +89,7 @@ function validateInput(input: GameInput): FieldError[] | undefined {
       message: "Title must be at least 1 character.",
     });
   }
+
   if (errors.length > 0) return errors;
   return undefined;
 }
@@ -349,7 +350,7 @@ export class GameResolver {
     @Ctx() { req, redis }: MyContext
   ): Promise<GameResponse> {
     const user = await User.findOne(req.session.userId);
-    const game = await Game.findOne(id);
+    const game = await Game.findOne(id, { relations: ["submitter"] });
     if (!game) throw new Error("No game exists with that id");
 
     if (game.submitter.id !== user?.id && !user?.isAdmin) {
@@ -390,13 +391,15 @@ export class GameResolver {
     @Ctx() { req, redis }: MyContext
   ): Promise<GameResponse> {
     const user = await User.findOne(req.session.userId);
-    if (!user?.isSubmitter) throw new Error("User cannot submit games");
+
+    const inputErrors = validateInput(input);
+    if (inputErrors) return { errors: inputErrors };
 
     try {
       const game = await Game.create({
         ...input,
         submitter: user,
-        submitterId: user.id,
+        submitterId: user!.id,
       }).save();
       await redis.set(SLUG_PREFIX + slugify(game), game.id);
       return { game };

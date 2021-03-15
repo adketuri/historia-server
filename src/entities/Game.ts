@@ -25,7 +25,7 @@ export class Game extends BaseEntity {
   slug: string;
 
   @Field()
-  @Column({ nullable: true })
+  @Column({ type: "text", unique: true })
   title: string;
 
   @Field({ nullable: true })
