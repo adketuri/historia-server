@@ -62,10 +62,6 @@ export class PostResolver {
       game,
       author: user,
     }).save();
-    console.log("Post created", post);
-    console.log("user posts", user.posts);
-    console.log("game posts", game.posts);
-
     user.posts.push(post);
     game.posts.push(post);
     await user.save();
@@ -96,8 +92,21 @@ export class PostResolver {
   }
 
   @Mutation(() => Boolean)
-  async deletePost(@Arg("id") id: number): Promise<boolean> {
-    await Post.delete({ id: id });
-    return true;
+  @UseMiddleware(isAuth)
+  async deletePost(
+    @Ctx() { req }: MyContext,
+    @Arg("id", () => Int!) id: number
+  ): Promise<boolean> {
+    const post = await Post.findOne(id, { relations: ["author"] });
+    if (!post) return false;
+
+    const user = await User.findOne(req.session.userId);
+    if (!user) return false;
+
+    if (post.author.id === user.id || user.isAdmin) {
+      await Post.delete({ id: id });
+      return true;
+    }
+    return false;
   }
 }

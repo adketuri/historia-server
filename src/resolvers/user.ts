@@ -85,7 +85,13 @@ export class UserResolver {
   ): Promise<Boolean | undefined> {
     const user = await User.findOne(id);
     if (!user) throw new Error("No user to update");
-    if (isBanned !== undefined) user.isBanned = isBanned;
+    if (isBanned !== undefined) {
+      user.isBanned = isBanned;
+      if (isBanned) {
+        // Nuke all their posts 💣
+        Post.delete({ author: user });
+      }
+    }
     if (isSubmitter !== undefined) user.isSubmitter = isSubmitter;
     if (isVerified !== undefined) user.isVerified = isVerified;
     await user.save();
@@ -239,6 +245,7 @@ export class UserResolver {
       // Try to create the user + set our session id
       const user = await User.create({
         username: options.username,
+        profile: "No profile",
         email: options.email,
         password: hashedPassword,
       }).save();
