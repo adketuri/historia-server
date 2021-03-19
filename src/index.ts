@@ -25,16 +25,18 @@ const main = async () => {
     type: "postgres",
     url: process.env.DATABASE_URL,
     logging: true,
-    synchronize: true,
+    synchronize: !__prod__,
     migrations: ["dist/migrations/*.js"],
     entities: ["dist/entities/*.js"],
   });
 
   // await User.delete({});
-  await getConnection().runMigrations();
+  if (__prod__) {
+    await getConnection().runMigrations();
+  }
 
   await User.update(
-    { username: "andrew" },
+    { username: "zexyu" },
     {
       isAdmin: true,
       isSubmitter: true,
@@ -42,6 +44,8 @@ const main = async () => {
   );
 
   const app = express();
+
+  app.set("proxy", 1);
 
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
@@ -70,7 +74,7 @@ const main = async () => {
         httpOnly: true,
         sameSite: "lax",
         secure: __prod__,
-        //domain: __prod__ ? "rm2k.net" : undefined
+        domain: __prod__ ? ".rm2k.net" : undefined,
       },
       saveUninitialized: false,
       secret: process.env.SESSION_SECRET,

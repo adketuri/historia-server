@@ -214,8 +214,9 @@ export class UserResolver {
     ); // 3 days
 
     // send out an email
+    const subject = "RM2k.net Reset Password Request";
     const html = `Hi there! Click below to reset your password:<br/><br/><a href="${process.env.CORS_ORIGIN}/change-password/${token}">Reset Password</a>`;
-    await sendEmail(email, html);
+    await sendEmail(email, subject, html);
     return true;
   }
 
@@ -255,7 +256,8 @@ export class UserResolver {
       const token = v4();
       await redis.set(VERIFY_PREFIX + token, user.id, "ex", 1000 * 60 * 60 * 7); // 7 days
       const html = `Hi there! Click below to verify your email address:<br/><br/><a href="${process.env.CORS_ORIGIN}/verify/${token}">Verify Email</a>`;
-      await sendEmail(options.email, html);
+      const subject = "Please verify your rm2k.net email address";
+      await sendEmail(options.email, subject, html);
 
       // Return our user, done
       return { user };
