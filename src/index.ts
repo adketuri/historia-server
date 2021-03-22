@@ -4,13 +4,13 @@ import cors from "cors";
 import "dotenv-safe/config";
 import express from "express";
 import session from "express-session";
+import depthLimit from "graphql-depth-limit";
 import Redis from "ioredis";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection, getConnection } from "typeorm";
 import { COOKIE_NAME, SLUG_PREFIX, __prod__ } from "./constants";
 import { Game } from "./entities/Game";
-import { User } from "./entities/User";
 import { GameResolver } from "./resolvers/game";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
@@ -30,18 +30,9 @@ const main = async () => {
     entities: ["dist/entities/*.js"],
   });
 
-  // await User.delete({});
   if (__prod__) {
     await getConnection().runMigrations();
   }
-
-  await User.update(
-    { username: "zexyu" },
-    {
-      isAdmin: true,
-      isSubmitter: true,
-    }
-  );
 
   const app = express();
 
@@ -95,6 +86,9 @@ const main = async () => {
       favoriteLoader: createFavoriteLoader(),
       gameLoader: createGameLoader(),
     }),
+    introspection: true,
+    playground: true,
+    validationRules: [depthLimit(5)],
   });
 
   apolloServer.applyMiddleware({ app, cors: false });
@@ -113,7 +107,7 @@ const main = async () => {
   );
 
   app.get("/", (_, res) => {
-    res.send("hello");
+    res.redirect("https://github.com/adketuri/historia-server");
   });
   app.listen(parseInt(process.env.PORT), () => {
     console.log("Server started");

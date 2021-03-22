@@ -156,6 +156,30 @@ export class GameResolver {
     return download;
   }
 
+  @Mutation(() => Number)
+  async linkScreenshots(@Ctx() { redis }: MyContext): Promise<number> {
+    let fixes = 0;
+    const allScreenshots = await Screenshot.find({ relations: ["game"] });
+    allScreenshots.forEach(async (s) => {
+      if (!s.game) {
+        const slug = s.url.split("/")[4];
+        console.log("Found broken game", slug);
+        const id = await redis.get(SLUG_PREFIX + slug);
+        if (id) {
+          const game = await Game.findOne(id, { relations: ["screenshots"] });
+          if (game) {
+            game.screenshots.push(s);
+            await game.save();
+            console.log("Successfully updated game!");
+            fixes++;
+          }
+        }
+      }
+    });
+    console.log("Total fixes:", fixes);
+    return fixes;
+  }
+
   @Mutation(() => Screenshot)
   @UseMiddleware(isSubmitter)
   async createScreenshot(
@@ -257,6 +281,8 @@ export class GameResolver {
       relations: ["game"],
       order: { createdAt: "DESC" },
     });
+    console.log("New screenshots");
+    console.log(newScreenshots);
     const newPosts = await Post.find({
       take: 5,
       relations: ["game"],
@@ -307,7 +333,6 @@ export class GameResolver {
       qb.where("game.createdAt < :date", { date });
     }
     qb.leftJoinAndSelect("game.posts", "posts")
-      // .orderBy(`posts."createdAt"`, "ASC") // TODO: this breaks game listing?
       .leftJoinAndSelect("posts.author", "users")
       .leftJoinAndSelect("game.screenshots", "screenshots")
       .leftJoinAndSelect("game.downloads", "downloads")
